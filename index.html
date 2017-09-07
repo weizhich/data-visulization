@@ -1,0 +1,202 @@
+﻿<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+
+.node {
+  stroke: #fff;
+  stroke-width: 1.5px;
+}
+
+.link {
+  stroke: #999;
+  stroke-opacity: .6;
+}
+
+</style>
+<body>
+
+<script src="timbre/timbre.js"></script>
+<script src="timbre/jsmad.js"></script>
+<script src="timbre/mp3_decode.js"></script>
+<script src="d3/d3.js"></script>
+<script>
+
+var width = 1280,
+    height = 720;
+
+var array = new Array(128);
+var array2 = new Array(128);
+var scale = d3.scale.linear()
+              .domain([-10, 30])
+              .range([0, 100])
+              .clamp(true);
+
+var color = d3.scale.category10();
+
+var force = d3.layout.force()
+    .charge(-120)
+    .linkDistance(30)
+    .size([width, height]);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+
+var gseli = 128;
+var rects = svg.selectAll("rect")
+       .data(array)
+       .enter()
+       .append("rect")
+       .attr("x", function(d, i){
+        return i*width/128;
+       })
+       .attr("y", 600)
+       .attr("width", width/128-1)
+       .attr("height", 100)
+       .style("fill", function(d, i){
+            return color(i);
+         });
+
+
+var rects2 = svg.selectAll("rect2")
+       .data(array2)
+       .enter()
+       .append("rect")
+       .attr("x", function(d, i){
+        return i*width/128;
+       })
+       .attr("y", 0)
+       .attr("width", width/128-1)
+       .attr("height", 0)
+       .style("fill", function(d, i){
+            return color(i);
+         });
+
+function updateRects(seli){
+  rects.transition().duration(100)
+         .attr("x", function(d, i){
+            var selwidth = 5*width/128;
+            var otherwidth = (width-selwidth)/127;
+            if(i <= seli) return i*otherwidth;
+            else
+            return (i-1)*otherwidth+selwidth;
+         })
+         .attr("width", function(d, i){
+            var selwidth = 5*width/128 - 1;
+            var otherwidth = (width-selwidth+1)/127-1;
+            if(seli == i) return selwidth;
+            else
+            return otherwidth;
+         })
+         .attr("y", function(d, i){
+            if(seli == i) return 600-5*scale(fft.spectrum[i]);
+            else 
+            return 600-scale(fft.spectrum[i]);
+         })
+         .attr("height", function(d, i){
+            if(seli == i) return 5*scale(fft.spectrum[i]);
+            else
+            return scale(fft.spectrum[i]);
+         })
+         .attr("opacity", function(d, i){
+            if(seli == i || seli == 128) return 1;
+            else return 0.3;
+         });
+}
+
+
+function updateRects2(seli){
+  rects2.transition().duration(100)
+         .attr("x", function(d, i){
+            var selwidth = 5*width/128;
+            var otherwidth = (width-selwidth)/127;
+            if(i <= seli) return i*otherwidth;
+            else
+            return (i-1)*otherwidth+selwidth;
+         })
+         .attr("width", function(d, i){
+            var selwidth = 5*width/128 - 1;
+            var otherwidth = (width-selwidth+1)/127-1;
+            if(seli == i) return selwidth;
+            else
+            return otherwidth;
+         });
+}
+
+    rects.on("mouseover", function(d, i){
+          gseli = i;
+          updateRects(i);
+          updateRects2(i);
+       })
+        .on("mouseout", function(d, i){
+          gseli = 128;
+          updateRects(128);
+          updateRects2(128);
+        });
+
+    rects.append("title").text(function(d, i){
+      return "period"+i;
+    })
+
+    var txt = svg.append("text")
+              .attr("x", 400)
+              .attr("y", 650)
+              .attr("font-family", "Consolas")
+              .attr("font-size", "30px")
+              .attr("fill", "black");
+    var txt2 = svg.append("text")
+              .text("Playing: 夜桜街道 (instrumental)")
+              .attr("x", 900)
+              .attr("y", 650)
+              .attr("font-family", "Consolas")
+              .attr("font-size", "20px")
+              .attr("fill", "gray");
+
+    function changetxt(i, data){
+      txt.text(function(d){
+          return "period"+i+": "+data;
+      })
+    }
+
+var wav = T("audio", {loop:true}).loadthis("/resource/test2.wav", function() {
+            this.play();
+          }).on("ended", function() {
+            this.pause();
+          });
+
+
+var fft = T("spectrum", {size:512, interval:100}).on("data", function() {
+    array = fft.spectrum;
+    rects.transition().duration(100)
+         .attr("y", function(d, i){
+            if(gseli == 128) {
+              txt.text(function(d){
+                return "No period selected!";
+              })
+            }
+            if(gseli == i) {
+              changetxt(i, fft.spectrum[i]);
+              return 600-5*scale(fft.spectrum[i]);}
+            else
+            return 600-scale(fft.spectrum[i]);
+         })
+         .attr("height", function(d, i){
+            if(gseli == i) return 5*scale(fft.spectrum[i]);
+            else
+            return scale(fft.spectrum[i]);
+         });
+}).listen(wav);
+
+var fft2 = T("spectrum", {size:512, interval:500}).on("data", function() {
+      rects2.transition().duration(500).ease("bounce")
+         .attr("y", 0)
+         .attr("height", function(d, i){
+            if(scale(fft.spectrum[i]) > 70) return 100;
+            return 0;
+         });
+
+}).listen(wav);
+
+
+
+</script>
